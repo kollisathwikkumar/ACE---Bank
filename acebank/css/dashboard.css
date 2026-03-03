@@ -1298,6 +1298,118 @@ input:checked+.slider:before {
     }
 }
 
+/* Transaction Rows (Dynamic) */
+.txn-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: var(--border-radius-sm);
+    transition: background var(--transition-fast);
+    cursor: default;
+}
+
+.txn-row:hover {
+    background: var(--bg-surface-hover);
+}
+
+.txn-row+.txn-row {
+    border-top: 1px solid var(--border-color);
+}
+
+.txn-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.txn-icon .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.txn-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.txn-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.txn-sub {
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.txn-amount {
+    font-weight: 700;
+    font-size: 1rem;
+    white-space: nowrap;
+}
+
+/* Bar Chart (Dynamic) */
+.bar-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    gap: 12px;
+    height: 200px;
+    padding: 16px 8px 0;
+}
+
+.bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    gap: 8px;
+    height: 100%;
+}
+
+.bar-value {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.bar-track {
+    flex: 1;
+    width: 100%;
+    max-width: 40px;
+    background: var(--bg-main);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.bar-fill {
+    width: 100%;
+    background: linear-gradient(180deg, var(--primary), var(--secondary));
+    border-radius: 6px 6px 0 0;
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 4px;
+}
+
+.bar-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
 /* Media Queries for responsiveness */
 @media (max-width: 1024px) {
     .stats-row {

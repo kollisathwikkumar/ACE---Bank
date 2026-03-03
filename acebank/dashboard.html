@@ -145,8 +145,8 @@
                         </div>
                         <div class="stat-details">
                             <div class="stat-title">Monthly Income</div>
-                            <div class="stat-value">₹0.00</div>
-                            <div class="stat-trend text-muted">No data</div>
+                            <div class="stat-value" id="statIncome">₹0.00</div>
+                            <div class="stat-trend text-muted" id="statIncomeTrend">No data</div>
                         </div>
                     </div>
                     <div class="stat-card ripple-container" onclick="SAL.actions.switchPage('analytics')">
@@ -155,8 +155,8 @@
                         </div>
                         <div class="stat-details">
                             <div class="stat-title">Expenses</div>
-                            <div class="stat-value">₹0.00</div>
-                            <div class="stat-trend text-muted">No data</div>
+                            <div class="stat-value" id="statExpenses">₹0.00</div>
+                            <div class="stat-trend text-muted" id="statExpensesTrend">No data</div>
                         </div>
                     </div>
                     <div class="stat-card ripple-container" onclick="SAL.actions.switchPage('accounts')">
@@ -235,7 +235,7 @@
                                     stroke-dashoffset="-60"></circle>
                                 <g class="donut-text">
                                     <text x="18" y="16" class="donut-lbl">TOTAL</text>
-                                    <text x="18" y="22" class="donut-val">₹18.2k</text>
+                                    <text x="18" y="22" class="donut-val" id="donutTotal">₹0</text>
                                 </g>
                             </svg>
                         </div>
@@ -627,13 +627,13 @@
             <form id="transferForm" onsubmit="SAL.actions.handleTransfer(event)">
                 <div class="input-group">
                     <label>From Account</label>
-                    <select class="form-input">
-                        <option>Primary Savings (₹<span class="modal-bal-display"></span>)</option>
+                    <select class="form-input" id="transferFromAccount">
+                        <option>Primary Savings</option>
                     </select>
                 </div>
                 <div class="input-group">
-                    <label>Recipient Name or UPI ID</label>
-                    <input type="text" id="transferRecipient" class="form-input" placeholder="e.g. rakesh@upi" required>
+                    <label>Recipient Account Number</label>
+                    <input type="number" id="transferToAccount" class="form-input" placeholder="e.g. 12345678" required>
                 </div>
                 <div class="input-group">
                     <label>Amount (₹)</label>

@@ -28,13 +28,22 @@ public class BankServiceImpl implements BankService {
             // 1. Get the hash using the new DAO method
             String storedHash = userDao.getPasswordHash(accountNo);
 
+            if (storedHash == null) {
+                log.warning("Login failed for account " + accountNo + ": no password hash found in DB");
+                return Optional.empty();
+            }
+
             // 2. Compare using BCrypt
             if (PasswordUtil.checkPassword(plainPassword, storedHash)) {
                 // 3. If matched, fetch full details for the session
+                log.info("Login successful for account: " + accountNo);
                 return Optional.of(userDao.getUserDetails(accountNo));
+            } else {
+                log.warning("Login failed for account " + accountNo + ": password mismatch (hash prefix: "
+                        + storedHash.substring(0, Math.min(4, storedHash.length())) + ")");
             }
         } catch (SQLException e) {
-            log.severe("Database error during login: " + e.getMessage());
+            log.severe("Database error during login for account " + accountNo + ": " + e.getMessage());
         }
         return Optional.empty();
     }

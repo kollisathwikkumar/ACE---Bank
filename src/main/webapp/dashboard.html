@@ -1142,6 +1142,70 @@
       flex: 1;
     }
 
+    /* ─── File Upload Zone ─── */
+    .file-drop-zone {
+      border: 2px dashed rgba(0, 0, 0, 0.12);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s var(--transition-smooth);
+      background: #fafbfc;
+    }
+
+    .file-drop-zone:hover {
+      border-color: var(--primary);
+      background: rgba(0, 102, 255, 0.03);
+    }
+
+    .file-drop-zone.drag-over {
+      border-color: var(--primary);
+      background: rgba(0, 102, 255, 0.06);
+      transform: scale(1.01);
+    }
+
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+
+    .file-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.65rem;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      transition: all 0.15s;
+      animation: fadeUp 0.25s ease both;
+    }
+
+    .file-chip:hover {
+      background: #e8ecf1;
+    }
+
+    .file-remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-3);
+      padding: 2px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .file-remove-btn:hover {
+      color: var(--rose);
+      background: rgba(244, 63, 94, 0.1);
+    }
+
     /* ─── Toast ─── */
     .toast-container {
       position: fixed;
@@ -1884,15 +1948,15 @@
             </div>
             <div class="card">
               <div class="section-title" style="margin-bottom:1rem">Income vs Expenses</div>
-              <div style="display:flex;flex-direction:column;gap:1rem">
+              <div style="display:flex;flex-direction:column;gap:1rem" id="incomeExpensesContainer">
                 <div>
                   <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.4rem">
                     <span style="font-weight:600">Income</span><span class="outfit"
                       style="font-weight:700;color:var(--emerald)" id="analyticsIncome">₹0</span>
                   </div>
                   <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
-                    <div
-                      style="height:100%;width:70%;background:var(--emerald);border-radius:99px;transition:width 1s var(--transition-smooth)">
+                    <div id="incomeBar"
+                      style="height:100%;width:0%;background:var(--emerald);border-radius:99px;transition:width 1s var(--transition-smooth)">
                     </div>
                   </div>
                 </div>
@@ -1902,26 +1966,26 @@
                       style="font-weight:700;color:var(--rose)" id="analyticsExpenses">₹0</span>
                   </div>
                   <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
-                    <div
-                      style="height:100%;width:30%;background:var(--rose);border-radius:99px;transition:width 1s var(--transition-smooth)">
+                    <div id="expensesBar"
+                      style="height:100%;width:0%;background:var(--rose);border-radius:99px;transition:width 1s var(--transition-smooth)">
                     </div>
                   </div>
                 </div>
                 <div>
                   <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.4rem">
                     <span style="font-weight:600">Savings Rate</span><span class="outfit"
-                      style="font-weight:700;color:var(--primary)">56.6%</span>
+                      style="font-weight:700;color:var(--primary)" id="analyticsSavingsRate">0%</span>
                   </div>
                   <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
-                    <div
-                      style="height:100%;width:56.6%;background:var(--primary);border-radius:99px;transition:width 1s var(--transition-smooth)">
+                    <div id="savingsBar"
+                      style="height:100%;width:0%;background:var(--primary);border-radius:99px;transition:width 1s var(--transition-smooth)">
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <div class="card" style="grid-column:span 2">
-              <div class="section-title" style="margin-bottom:1rem">Top Spending Categories</div>
+              <div class="section-title" style="margin-bottom:1rem">Spending Breakdown</div>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem" id="categoryCards"></div>
             </div>
           </div>
@@ -2396,6 +2460,25 @@
         <textarea class="form-input" placeholder="Describe the issue in detail..." rows="4"
           style="resize:vertical"></textarea>
       </div>
+      <div class="form-group">
+        <label class="form-label">Attachments <span
+            style="font-weight:400;color:var(--text-3);font-size:0.65rem">(optional · max 3 files, 10 MB
+            each)</span></label>
+        <div class="file-drop-zone" id="ticketDropZone">
+          <input type="file" id="ticketFileInput" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+            style="display:none" />
+          <span class="material-symbols-outlined"
+            style="font-size:32px;color:var(--primary);opacity:0.7">cloud_upload</span>
+          <div style="font-size:0.82rem;font-weight:600;color:var(--text-2);margin-top:0.4rem">Drag & drop files here
+          </div>
+          <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.15rem">or <span
+              style="color:var(--primary);cursor:pointer;font-weight:600" id="ticketBrowseLink">browse</span> to choose
+          </div>
+          <div style="font-size:0.62rem;color:var(--text-3);margin-top:0.3rem">Supports: JPG, PNG, GIF, PDF, DOC, DOCX,
+            TXT, CSV, XLSX</div>
+        </div>
+        <div class="file-list" id="ticketFileList"></div>
+      </div>
       <div class="modal-actions">
         <button class="btn-secondary ripple-container" data-modal="ticketModal">Cancel</button>
         <button class="btn-primary ripple-container" id="confirmTicketBtn">
@@ -2462,70 +2545,151 @@
           SAL.logic.toast('All notifications marked as read', 'info');
         },
 
-        transfer(recipient, amount, note) {
+        async fetchTransactions() {
+          const session = DB.getCurrentSession();
+          if (!session) return;
+          try {
+            const resp = await fetch(`api/transactions?accountNo=${session.accountNumber}`);
+            const data = await resp.json();
+            if (data.success && data.transactions) {
+              SAL.state.transactions = data.transactions.map(t => {
+                let icon = 'swap_horiz';
+                if (t.txType === 'DEPOSIT') icon = 'add_card';
+                else if (t.txType === 'TRANSFER') icon = 'send';
+                else if (t.txType === 'WITHDRAWAL') icon = 'payments';
+
+                return {
+                  id: t.id,
+                  icon: icon,
+                  name: t.remark || t.txType,
+                  cat: t.txType,
+                  date: new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+                  amount: t.direction === 'outgoing' ? -t.amount : t.amount,
+                  type: t.direction === 'outgoing' ? 'debit' : 'credit'
+                };
+              });
+              SAL.logic.renderTransactions();
+            }
+          } catch (e) {
+            console.error('Failed to fetch transactions', e);
+          }
+        },
+
+        async transfer(recipient, amount, note) {
           if (!recipient || !amount || amount <= 0) {
             SAL.logic.toast('Please fill all required fields', 'error'); return;
           }
           if (amount > SAL.state.balance) {
             SAL.logic.toast('Insufficient balance', 'error'); return;
           }
+
           const session = DB.getCurrentSession();
-          SAL.state.balance -= parseFloat(amount);
-          SAL.state.transactions.unshift({
-            icon: 'send',
-            name: `Transfer to ${recipient}`,
-            cat: 'Transfer',
-            date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-            amount: -parseFloat(amount),
-            type: 'debit'
-          });
-          SAL.logic.updateBalance();
-          SAL.logic.renderTransactions();
-          SAL.actions.closeModal('transferModal');
-          SAL.logic.toast(`\u20b9${parseFloat(amount).toLocaleString('en-IN')} sent to ${recipient}`, 'success');
-          if (session) DB.updateBalance(session.accountNumber, parseFloat(amount), 'debit');
+          if (!session) return;
+
+          try {
+            // Use Payment API to log the withdrawal (since this is lite, we don't have destination account info)
+            const resp = await fetch('api/payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accountNumber: session.accountNumber,
+                amount: amount,
+                paymentType: 'Transfer',
+                payee: recipient + (note ? ` (${note})` : '')
+              })
+            });
+            const result = await resp.json();
+
+            if (result.success) {
+              SAL.state.balance = result.balance;
+              session.balance = result.balance;
+              localStorage.setItem('ace_session', JSON.stringify(session));
+
+              SAL.logic.updateBalance();
+              await this.fetchTransactions();
+              SAL.logic.loadAnalytics(); // Refresh charts
+              SAL.actions.closeModal('transferModal');
+              SAL.logic.toast(`\u20b9${parseFloat(amount).toLocaleString('en-IN')} sent to ${recipient}`, 'success');
+            } else {
+              SAL.logic.toast(result.message || 'Transfer failed', 'error');
+            }
+          } catch (e) {
+            SAL.logic.toast('Network error', 'error');
+          }
         },
 
-        addFunds(amount, method) {
+        async addFunds(amount, method) {
           if (!amount || amount <= 0) {
             SAL.logic.toast('Enter a valid amount', 'error'); return;
           }
           const session = DB.getCurrentSession();
-          SAL.state.balance += parseFloat(amount);
-          SAL.state.transactions.unshift({
-            icon: 'add_card',
-            name: `Funds added via ${method}`,
-            cat: 'Credit',
-            date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-            amount: parseFloat(amount),
-            type: 'credit'
-          });
-          SAL.logic.updateBalance();
-          SAL.logic.renderTransactions();
-          SAL.actions.closeModal('addFundsModal');
-          SAL.logic.toast(`\u20b9${parseFloat(amount).toLocaleString('en-IN')} added to your account`, 'success');
-          if (session) DB.updateBalance(session.accountNumber, parseFloat(amount), 'credit');
+          if (!session) return;
+
+          try {
+            const resp = await fetch('api/deposit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accountNumber: session.accountNumber,
+                amount: amount
+              })
+            });
+            const result = await resp.json();
+
+            if (result.success) {
+              SAL.state.balance = result.balance;
+              session.balance = result.balance;
+              localStorage.setItem('ace_session', JSON.stringify(session));
+
+              SAL.logic.updateBalance();
+              await this.fetchTransactions();
+              SAL.logic.loadAnalytics(); // Refresh charts
+              SAL.actions.closeModal('addFundsModal');
+              SAL.logic.toast(`\u20b9${parseFloat(amount).toLocaleString('en-IN')} added via ${method}`, 'success');
+            } else {
+              SAL.logic.toast(result.message || 'Deposit failed', 'error');
+            }
+          } catch (e) {
+            SAL.logic.toast('Network error', 'error');
+          }
         },
 
-        newPayment(payee, amount, type) {
+        async newPayment(payee, amount, type) {
           if (!payee || !amount || amount <= 0) {
             SAL.logic.toast('Please fill all required fields', 'error'); return;
           }
           const session = DB.getCurrentSession();
-          SAL.state.balance -= parseFloat(amount);
-          SAL.state.transactions.unshift({
-            icon: 'payments',
-            name: `${type}: ${payee}`,
-            cat: type,
-            date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-            amount: -parseFloat(amount),
-            type: 'debit'
-          });
-          SAL.logic.updateBalance();
-          SAL.logic.renderTransactions();
-          SAL.actions.closeModal('newPaymentModal');
-          SAL.logic.toast(`Payment of \u20b9${parseFloat(amount).toLocaleString('en-IN')} to ${payee} successful`, 'success');
-          if (session) DB.updateBalance(session.accountNumber, parseFloat(amount), 'debit');
+          if (!session) return;
+
+          try {
+            const resp = await fetch('api/payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accountNumber: session.accountNumber,
+                amount: amount,
+                paymentType: type,
+                payee: payee
+              })
+            });
+            const result = await resp.json();
+
+            if (result.success) {
+              SAL.state.balance = result.balance;
+              session.balance = result.balance;
+              localStorage.setItem('ace_session', JSON.stringify(session));
+
+              SAL.logic.updateBalance();
+              await this.fetchTransactions();
+              SAL.logic.loadAnalytics(); // Refresh charts
+              SAL.actions.closeModal('newPaymentModal');
+              SAL.logic.toast(`Payment of \u20b9${parseFloat(amount).toLocaleString('en-IN')} to ${payee} successful`, 'success');
+            } else {
+              SAL.logic.toast(result.message || 'Payment failed', 'error');
+            }
+          } catch (e) {
+            SAL.logic.toast('Network error', 'error');
+          }
         },
 
         toggleCard() {
@@ -2637,22 +2801,40 @@
           });
         },
 
-        renderBarChart() {
-          const months = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb'];
-          const values = [16200, 19800, 24000, 18240, 15600, 12800];
-          const max = Math.max(...values.filter(v => v > 0));
-
+        renderBarChart(data) {
           const chart = document.getElementById('barChart');
           if (!chart) return;
+
+          if (!data || !data.length) {
+            // Show empty placeholder months
+            const now = new Date();
+            const placeholderMonths = [];
+            for (let i = 5; i >= 0; i--) {
+              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+              placeholderMonths.push(d.toLocaleString('en', { month: 'short' }));
+            }
+            chart.innerHTML = placeholderMonths.map(m => `
+              <div class="bar-col">
+                <div class="bar" style="height:8px;opacity:0.08" title="₹0 in ${m}"></div>
+                <div class="bar-label">${m}</div>
+              </div>
+            `).join('');
+            return;
+          }
+
+          const months = data.map(d => d.label);
+          const values = data.map(d => d.amount);
+          const max = Math.max(...values.filter(v => v > 0)) || 1;
+
           chart.innerHTML = values.map((v, i) => `
-        <div class="bar-col">
-          <div class="bar ${v === Math.max(...values.filter(v => v > 0)) ? 'active-bar' : ''}" 
-               style="height:${v > 0 ? (v / max) * 100 : 8}px;${v === 0 ? 'opacity:0.06' : ''}"
-               title="₹${v.toLocaleString('en-IN')} in ${months[i]}">
-          </div>
-          <div class="bar-label">${months[i].slice(0, 3)}</div>
-        </div>
-      `).join('');
+            <div class="bar-col">
+              <div class="bar ${v === Math.max(...values) && v > 0 ? 'active-bar' : ''}" 
+                   style="height:${v > 0 ? Math.max((v / max) * 100, 8) : 8}px;${v === 0 ? 'opacity:0.08' : ''}"
+                   title="₹${v.toLocaleString('en-IN')} in ${months[i]}">
+              </div>
+              <div class="bar-label">${months[i]}</div>
+            </div>
+          `).join('');
 
           chart.querySelectorAll('.bar').forEach(bar => {
             bar.addEventListener('click', () => {
@@ -2663,27 +2845,107 @@
           });
         },
 
-        renderCategoryCards() {
-          const cats = [
-            { icon: 'devices', label: 'Technology', pct: 60, color: 'var(--primary)', bg: 'rgba(0,102,255,0.08)' },
-            { icon: 'restaurant', label: 'Food', pct: 25, color: 'var(--emerald)', bg: '#ecfdf5' },
-            { icon: 'subscriptions', label: 'Lifestyle', pct: 15, color: '#a855f7', bg: '#fdf2f8' },
-            { icon: 'directions_car', label: 'Transport', pct: 8, color: 'var(--amber)', bg: '#fff7ed' },
-          ];
-          const el = document.getElementById('categoryCards');
-          if (!el) return;
-          el.innerHTML = cats.map(c => `
-        <div class="stat-card" style="cursor:default">
-          <div class="stat-icon" style="background:${c.bg};margin-bottom:0.75rem">
-            <span class="material-symbols-outlined" style="color:${c.color}">${c.icon}</span>
-          </div>
-          <div class="stat-label">${c.label}</div>
-          <div class="stat-value outfit" style="font-size:1.1rem;color:${c.color}">${c.pct}%</div>
-          <div style="margin-top:0.5rem;height:4px;background:#f1f5f9;border-radius:99px;overflow:hidden">
-            <div style="height:100%;width:${c.pct}%;background:${c.color};border-radius:99px"></div>
-          </div>
-        </div>
-      `).join('');
+        renderCategoryCards(spendingByType, totalExpenses) {
+          const donutTotal = document.getElementById('donutTotal');
+          if (donutTotal) donutTotal.textContent = '₹' + Number(totalExpenses).toLocaleString('en-IN');
+
+          if (!spendingByType || spendingByType.length === 0 || totalExpenses === 0) return;
+
+          const legend = document.getElementById('spendingLegend');
+          if (!legend) return;
+          const items = legend.querySelectorAll('.legend-item');
+
+          let offset = 0;
+          const circumference = 87.96;
+
+          for (let i = 0; i < 3; i++) {
+            const circle = document.getElementById('donut' + (i + 1));
+            const item = items[i];
+
+            if (i < spendingByType.length) {
+              const c = spendingByType[i];
+              const pct = Math.round((c.amount / totalExpenses) * 100);
+
+              if (item) {
+                const labelSpan = item.querySelector('.legend-dot-label span');
+                if (labelSpan) labelSpan.textContent = c.type;
+                const pctSpan = item.querySelector('.legend-pct');
+                if (pctSpan) pctSpan.textContent = pct + '%';
+                item.style.display = 'flex';
+              }
+
+              if (circle) {
+                const dash = (pct / 100) * circumference;
+                circle.setAttribute('stroke-dasharray', `${dash} ${circumference}`);
+                circle.setAttribute('stroke-dashoffset', -offset);
+                circle.style.display = 'block';
+                offset += dash;
+              }
+            } else {
+              if (item) item.style.display = 'none';
+              if (circle) circle.style.display = 'none';
+            }
+          }
+        },
+
+        async loadAnalytics() {
+          const session = DB.getCurrentSession();
+          if (!session) return;
+
+          const fmt = (v) => '₹' + Number(v).toLocaleString('en-IN');
+
+          try {
+            const resp = await fetch('api/analytics?accountNo=' + session.accountNumber);
+            const data = await resp.json();
+
+            if (!data.success) return;
+
+            // 1. Bar chart
+            this.renderBarChart(data.monthlySpending);
+
+            // 2. Income vs Expenses
+            const income = Number(data.income) || 0;
+            const expenses = Number(data.expenses) || 0;
+            const savingsRate = Number(data.savingsRate) || 0;
+            const maxIE = Math.max(income, expenses) || 1;
+
+            // Update Top 4 Stat Cards
+            const elStatInc = document.getElementById('statIncome');
+            if (elStatInc) elStatInc.textContent = fmt(income);
+
+            const elStatExp = document.getElementById('statExpenses');
+            if (elStatExp) elStatExp.textContent = fmt(expenses);
+
+            const elStatCred = document.getElementById('statCredit');
+            if (elStatCred) elStatCred.textContent = data.creditScore ? (data.creditScore + ' / 900') : '--';
+
+            // Also update the Analytics page charts (if user navigates there)
+            const elAnalyticsInc = document.getElementById('analyticsIncome');
+            if (elAnalyticsInc) elAnalyticsInc.textContent = fmt(income);
+            const elAnalyticsExp = document.getElementById('analyticsExpenses');
+            if (elAnalyticsExp) elAnalyticsExp.textContent = fmt(expenses);
+            const elAnalyticsSav = document.getElementById('analyticsSavingsRate');
+            if (elAnalyticsSav) elAnalyticsSav.textContent = savingsRate + '%';
+
+            // Animate bars after a short delay
+            setTimeout(() => {
+              document.getElementById('incomeBar').style.width = (income / maxIE * 100) + '%';
+              document.getElementById('expensesBar').style.width = (expenses / maxIE * 100) + '%';
+              document.getElementById('savingsBar').style.width = savingsRate + '%';
+            }, 200);
+
+            // 3. Spending by type
+            this.renderCategoryCards(data.spendingByType, expenses);
+
+            // 4. Update year selector
+            const yearSel = document.getElementById('analyticsYearSel');
+            if (yearSel && data.currentYear) {
+              yearSel.innerHTML = `<option selected>${data.currentYear}</option>`;
+            }
+
+          } catch (e) {
+            console.error('Analytics load error:', e);
+          }
         },
 
         addRipple(el, e) {
@@ -2717,24 +2979,27 @@
             this.updateBalance();
 
             // Update account page balance
-            const fmt = (v) => '₹' + v.toLocaleString('en-IN');
-            const accEl = document.getElementById('accSavingsBalance');
-            if (accEl) accEl.textContent = fmt(SAL.state.balance);
+            const fmt = (v) => '\u20b9' + v.toLocaleString('en-IN');
+
+            // Try to find the exact DOM element in the accounts tab
+            const allH3s = document.querySelectorAll('.account-card-header h3');
+            if (allH3s.length > 0) {
+              allH3s[0].textContent = fmt(SAL.state.balance);
+            }
 
             // Update account tag with account number
             const accTag = document.querySelector('.account-tag');
-            if (accTag && session.accountNumber) accTag.textContent = 'Primary Savings •••• ' + String(session.accountNumber).slice(-4);
+            if (accTag && session.accountNumber) accTag.textContent = 'Primary Savings \u2022\u2022\u2022\u2022 ' + String(session.accountNumber).slice(-4);
 
             // Update card holder name
             const cardHolder = document.getElementById('cardHolderName');
             if (cardHolder) cardHolder.textContent = session.firstName + (session.lastName ? ' ' + session.lastName : '');
           }
 
-          // Render initial data
-          this.renderTransactions();
-          this.renderNotifications();
-          this.renderBarChart();
-          this.renderCategoryCards();
+          // Fetch real data from backend
+          SAL.actions.fetchTransactions();
+          SAL.logic.renderNotifications();
+          SAL.logic.loadAnalytics();
 
           // ── Navigation ──
           document.querySelectorAll('[data-page]').forEach(item => {
@@ -2958,8 +3223,85 @@
           });
           document.getElementById('ticketBtn').addEventListener('click', () => SAL.actions.openModal('ticketModal'));
           document.getElementById('confirmTicketBtn').addEventListener('click', () => {
+            const fileCount = SAL.state.ticketFiles ? SAL.state.ticketFiles.length : 0;
             SAL.actions.closeModal('ticketModal');
-            SAL.logic.toast('Ticket #ACE-2847 submitted. We\'ll respond within 24 hours.', 'success');
+            const msg = fileCount > 0
+              ? `Ticket #ACE-2847 submitted with ${fileCount} attachment${fileCount > 1 ? 's' : ''}. We'll respond within 24 hours.`
+              : 'Ticket #ACE-2847 submitted. We\'ll respond within 24 hours.';
+            SAL.logic.toast(msg, 'success');
+            // Reset files
+            SAL.state.ticketFiles = [];
+            document.getElementById('ticketFileList').innerHTML = '';
+          });
+
+          // ── Ticket File Upload ──
+          const dropZone = document.getElementById('ticketDropZone');
+          const fileInput = document.getElementById('ticketFileInput');
+          const browseLink = document.getElementById('ticketBrowseLink');
+          SAL.state.ticketFiles = [];
+
+          const fileIcons = {
+            pdf: 'picture_as_pdf', doc: 'description', docx: 'description',
+            txt: 'article', csv: 'table_chart', xlsx: 'table_chart',
+            jpg: 'image', jpeg: 'image', png: 'image', gif: 'image'
+          };
+
+          function renderTicketFiles() {
+            const list = document.getElementById('ticketFileList');
+            if (!SAL.state.ticketFiles.length) { list.innerHTML = ''; return; }
+            list.innerHTML = SAL.state.ticketFiles.map((f, i) => {
+              const ext = f.name.split('.').pop().toLowerCase();
+              const icon = fileIcons[ext] || 'attach_file';
+              const size = f.size < 1024 ? f.size + ' B' : f.size < 1048576 ? (f.size / 1024).toFixed(1) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
+              return `<div class="file-chip">
+                <span class="material-symbols-outlined" style="font-size:16px;color:var(--primary)">${icon}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:0.75rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
+                  <div style="font-size:0.62rem;color:var(--text-3)">${size}</div>
+                </div>
+                <button class="file-remove-btn" data-idx="${i}" title="Remove">
+                  <span class="material-symbols-outlined" style="font-size:14px">close</span>
+                </button>
+              </div>`;
+            }).join('');
+            list.querySelectorAll('.file-remove-btn').forEach(btn => {
+              btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                SAL.state.ticketFiles.splice(parseInt(btn.dataset.idx), 1);
+                renderTicketFiles();
+              });
+            });
+          }
+
+          function addTicketFiles(files) {
+            for (const file of files) {
+              if (SAL.state.ticketFiles.length >= 3) {
+                SAL.logic.toast('Maximum 3 files allowed', 'info');
+                break;
+              }
+              if (file.size > 10 * 1024 * 1024) {
+                SAL.logic.toast(`${file.name} exceeds 10 MB limit`, 'info');
+                continue;
+              }
+              if (SAL.state.ticketFiles.some(f => f.name === file.name)) {
+                SAL.logic.toast(`${file.name} already added`, 'info');
+                continue;
+              }
+              SAL.state.ticketFiles.push(file);
+            }
+            renderTicketFiles();
+          }
+
+          browseLink.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+          dropZone.addEventListener('click', () => fileInput.click());
+          fileInput.addEventListener('change', () => { addTicketFiles(fileInput.files); fileInput.value = ''; });
+
+          dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+          dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+          dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            addTicketFiles(e.dataTransfer.files);
           });
 
           // ── Spending Legend hover ──

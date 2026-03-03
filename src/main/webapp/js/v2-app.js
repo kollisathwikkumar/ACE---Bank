@@ -49,7 +49,8 @@ async function handleLogin() {
     if (result.success) {
         AppState.user = buildUserState(result.account);
         dummyTransactions = [];
-        showApp(); buildSidebar(); navigate('dashboard');
+        showApp(); buildSidebar();
+        loadLiveData().then(function () { navigate('dashboard'); });
         showToast('Welcome back, ' + result.account.firstName + '!', 'success');
     } else {
         errEl.textContent = result.error; errEl.style.display = 'block';
@@ -190,6 +191,7 @@ var navItems = [
     { route: 'card-control', icon: 'credit_card', label: 'Card Control', badge: 'NEW', section: null },
     { route: 'credit-score', icon: 'trending_up', label: 'Credit Score', badge: 'NEW', section: null },
     { route: 'transactions', icon: 'receipt_long', label: 'Transactions', section: null },
+    { route: 'analytics', icon: 'analytics', label: 'Analytics', section: null },
     { route: 'goals', icon: 'savings', label: 'Goal Savings', badge: 'NEW', section: 'WEALTH' },
     { route: 'loans', icon: 'account_balance', label: 'Loan Center', badge: 'NEW', section: null },
     { route: 'net-worth', icon: 'donut_large', label: 'Net Worth', badge: 'NEW', section: null },
@@ -309,7 +311,7 @@ function launchConfetti(dur) {
 }
 
 /* ═══════════════════ ROUTER ═══════════════════ */
-var routes = { 'dashboard': renderDashboard, 'account': renderAccountOpening, 'credit-score': renderCreditScore, 'card-control': renderCardControl, 'loans': renderLoanCenter, 'goals': renderGoalSavings, 'net-worth': renderNetWorth, 'transactions': renderTransactions, 'profile': renderProfile, 'security': renderSecurity };
+var routes = { 'dashboard': renderDashboard, 'account': renderAccountOpening, 'credit-score': renderCreditScore, 'card-control': renderCardControl, 'loans': renderLoanCenter, 'goals': renderGoalSavings, 'net-worth': renderNetWorth, 'transactions': renderTransactions, 'analytics': renderAnalyticsPage, 'profile': renderProfile, 'security': renderSecurity };
 
 function navigate(route) {
     AppState.route = route;
@@ -344,25 +346,92 @@ function openQuickActions() {
     });
 }
 
+/* ═══════════════════ LIVE DATA ═══════════════════ */
+var liveAnalytics = null;
+
+async function loadLiveData() {
+    var u = AppState.user;
+    if (!u || !u.accountNo) return;
+    var accNo = u.accountNo;
+    try {
+        var [txRes, anRes] = await Promise.allSettled([
+            fetch('/LaceBank/api/transactions?accountNo=' + accNo),
+            fetch('/LaceBank/api/analytics?accountNo=' + accNo)
+        ]);
+        // Process transactions
+        if (txRes.status === 'fulfilled') {
+            var txData = await txRes.value.json();
+            if (txData.success && txData.transactions) {
+                dummyTransactions = txData.transactions.map(function (t) {
+                    var isOut = t.direction === 'outgoing';
+                    var icon = 'receipt';
+                    var color = '#64748b';
+                    var category = (t.txType || '').toLowerCase();
+                    if (t.txType === 'TRANSFER') { icon = 'send'; color = isOut ? '#ef4444' : '#10b981'; category = 'transfer'; }
+                    else if (t.txType === 'DEPOSIT') { icon = 'add_circle'; color = '#10b981'; category = 'income'; }
+                    else if (t.txType === 'WITHDRAWAL') { icon = 'payments'; color = '#ef4444'; category = 'payment'; }
+                    return {
+                        id: 'TXN' + t.id,
+                        merchant: t.remark || t.txType,
+                        category: category,
+                        type: isOut ? 'debit' : 'credit',
+                        amount: parseFloat(t.amount) || 0,
+                        date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+                        icon: icon,
+                        color: color
+                    };
+                });
+            }
+        }
+        // Process analytics
+        if (anRes.status === 'fulfilled') {
+            var anData = await anRes.value.json();
+            if (anData.success) {
+                liveAnalytics = anData;
+            }
+        }
+    } catch (e) {
+        console.error('loadLiveData error:', e);
+    }
+}
+
 /* ═══════════════════ DASHBOARD ═══════════════════ */
 function renderDashboard() {
     var c = document.getElementById('content'), u = AppState.user;
     if (!u) { showAuthPage('login'); return; }
-    // Compute stats from real transactions
-    var monthSpent = 0, monthEarned = 0, now = new Date();
-    (u.transactions || []).forEach(function (t) {
-        var d = new Date(t.date);
-        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+    // Compute stats from live analytics or transactions
+    var monthSpent = 0, monthEarned = 0;
+    if (liveAnalytics) {
+        monthSpent = parseFloat(liveAnalytics.expenses) || 0;
+        monthEarned = parseFloat(liveAnalytics.income) || 0;
+    } else {
+        var now = new Date();
+        dummyTransactions.forEach(function (t) {
             if (t.type === 'debit') monthSpent += t.amount;
             if (t.type === 'credit') monthEarned += t.amount;
-        }
-    });
+        });
+    }
     var hasTxns = dummyTransactions.length > 0;
     var txnHTML = hasTxns ? buildTransactionList(dummyTransactions.slice(0, 6)) :
         '<div style="text-align:center;padding:40px 20px;color:var(--text-faint)">' +
         '<span class="material-symbols-outlined" style="font-size:40px;display:block;margin-bottom:12px;color:var(--border)">receipt_long</span>' +
         '<div style="font:500 14px var(--font-display);color:var(--text-muted);margin-bottom:4px">No transactions yet</div>' +
         '<div style="font:400 13px var(--font-body)">Your account was just created. Transactions will appear here.</div></div>';
+    // Spending breakdown from analytics
+    var spendBreakdownHTML = '';
+    var donutSegments = [];
+    if (liveAnalytics && liveAnalytics.spendingByType && liveAnalytics.spendingByType.length > 0) {
+        var spColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#64748b', '#ef4444', '#f59e0b', '#10b981'];
+        var totalSp = liveAnalytics.spendingByType.reduce(function (s, c) { return s + (parseFloat(c.amount) || 0); }, 0);
+        liveAnalytics.spendingByType.forEach(function (cat, i) {
+            var pct = totalSp > 0 ? Math.round((parseFloat(cat.amount) / totalSp) * 100) : 0;
+            var col = spColors[i % spColors.length];
+            spendBreakdownHTML += '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:50%;background:' + col + '"></div>' + cat.type + ' ' + pct + '%</div>';
+            donutSegments.push({ value: parseFloat(cat.amount) || 1, color: col });
+        });
+    } else {
+        spendBreakdownHTML = '<div style="text-align:center;color:var(--text-faint);font-size:13px;padding:20px">No spending data yet</div>';
+    }
     var csLabel = u.creditScore >= 750 ? 'EXCELLENT' : u.creditScore >= 700 ? 'GOOD' : u.creditScore >= 650 ? 'FAIR' : 'POOR';
     var csBadge = u.creditScore >= 700 ? 'badge-green' : u.creditScore >= 650 ? 'badge-blue' : 'badge-red';
     c.innerHTML =
@@ -375,12 +444,12 @@ function renderDashboard() {
         '<div class="balance-actions">' +
         '<button class="balance-action" onclick="showToast(\'Transfer feature coming soon\',\'info\')"><span class="material-symbols-outlined" style="font-size:16px">send</span> Transfer</button>' +
         '<button class="balance-action" onclick="navigate(\'transactions\')"><span class="material-symbols-outlined" style="font-size:16px">receipt_long</span> Statement</button>' +
-        '<button class="balance-action" onclick="navigate(\'loans\')"><span class="material-symbols-outlined" style="font-size:16px">savings</span> FD/RD</button>' +
+        '<button class="balance-action" onclick="navigate(\'analytics\')"><span class="material-symbols-outlined" style="font-size:16px">analytics</span> Analytics</button>' +
         '<button class="balance-action" onclick="openQuickActions()"><span class="material-symbols-outlined" style="font-size:16px">more_horiz</span> More</button>' +
         '</div></div>' +
         '<div class="stats-grid">' +
-        buildStatCard('MONTHLY SPENT', monthSpent > 0 ? formatINR(monthSpent) : '₹0', hasTxns ? '↑ vs last month' : 'No spending yet', 'trend-down', [0, 0, 0, 0, 0, monthSpent / 1000], ['#ef4444']) +
-        buildStatCard('MONTHLY EARNED', monthEarned > 0 ? formatINR(monthEarned) : '₹0', hasTxns ? '↑ Credited' : 'No income yet', 'trend-up', [0, 0, 0, 0, 0, monthEarned / 1000], ['#10b981']) +
+        buildStatCard('MONTHLY SPENT', monthSpent > 0 ? formatINR(monthSpent) : '₹0', hasTxns ? 'This month' : 'No spending yet', 'trend-down', [0, 0, 0, 0, 0, monthSpent / 1000], ['#ef4444']) +
+        buildStatCard('MONTHLY EARNED', monthEarned > 0 ? formatINR(monthEarned) : '₹0', hasTxns ? 'This month' : 'No income yet', 'trend-up', [0, 0, 0, 0, 0, monthEarned / 1000], ['#10b981']) +
         buildStatCard('CREDIT SCORE', u.creditScore + ' / 900', csLabel, 'trend-up', u.creditScoreHistory.length > 1 ? u.creditScoreHistory : [u.creditScore, u.creditScore], ['#1f1fff']) +
         buildStatCard('NET WORTH', u.balance > 0 ? formatINR(u.balance) : '₹0', u.balance > 0 ? '↑ Growing' : 'Start saving!', 'trend-up', [0, 0, 0, 0, 0, u.balance / 1000], ['#8b5cf6']) +
         '</div>' +
@@ -389,11 +458,7 @@ function renderDashboard() {
         '<div>' +
         '<div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">📊 Spending Breakdown</span></div><div class="card-body" style="text-align:center"><canvas id="spendDonut" width="220" height="220"></canvas>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;text-align:left">' +
-        '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:50%;background:#6366f1"></div>Loans 35%</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:50%;background:#8b5cf6"></div>Investments 20%</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:50%;background:#06b6d4"></div>Insurance 12%</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:50%;background:#64748b"></div>Cash 18%</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>Transfers 15%</div>' +
+        spendBreakdownHTML +
         '</div></div></div>' +
         '<div class="card"><div class="card-header"><span class="card-title">📈 Credit Score</span></div><div class="card-body" style="text-align:center">' +
         '<div style="font-family:var(--font-display);font-size:40px;font-weight:800;color:var(--ace-blue)">' + u.creditScore + '</div>' +
@@ -416,7 +481,11 @@ function renderDashboard() {
             drawSparkline(cv, d, col);
         });
         var donut = document.getElementById('spendDonut');
-        if (donut && hasTxns) drawDonutChart(donut, [{ value: 35, color: '#6366f1' }, { value: 20, color: '#8b5cf6' }, { value: 12, color: '#06b6d4' }, { value: 18, color: '#64748b' }, { value: 15, color: '#ef4444' }], 110, 110, 80, 28);
+        if (donut && donutSegments.length > 0) {
+            drawDonutChart(donut, donutSegments, 110, 110, 80, 28);
+        } else if (donut && hasTxns) {
+            drawDonutChart(donut, [{ value: 35, color: '#6366f1' }, { value: 20, color: '#8b5cf6' }, { value: 12, color: '#06b6d4' }, { value: 18, color: '#64748b' }, { value: 15, color: '#ef4444' }], 110, 110, 80, 28);
+        }
     }, 100);
     var hero = document.getElementById('balanceHero');
     if (hero) hero.addEventListener('mousemove', function (e) { var r = hero.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5; hero.style.transform = 'perspective(1000px) rotateX(' + (-y * 6) + 'deg) rotateY(' + (x * 6) + 'deg)'; });
@@ -582,21 +651,28 @@ function renderNetWorth() {
 
 /* ═══════════════════ TRANSACTIONS ═══════════════════ */
 function renderTransactions() {
-    var c = document.getElementById('content'), filter = 'all';
+    var c = document.getElementById('content');
+    // Compute summary from dummyTransactions (now filled with real data)
+    var totalCredits = 0, totalDebits = 0;
+    dummyTransactions.forEach(function (t) {
+        if (t.type === 'credit') totalCredits += t.amount;
+        else totalDebits += t.amount;
+    });
+    var balance = AppState.user ? AppState.user.balance : 0;
     c.innerHTML = '<h2 style="margin-bottom:24px">📋 Transactions</h2>' +
         '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px">' +
-        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Opening Balance</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-top:4px">₹52,980</div></div>' +
-        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Total Credits</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ace-green);margin-top:4px">+₹1,25,050</div></div>' +
-        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Total Debits</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ace-red);margin-top:4px">-₹53,500</div></div>' +
-        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Closing Balance</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-top:4px">₹1,24,530</div></div>' +
+        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Current Balance</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-top:4px">' + formatINR(balance) + '</div></div>' +
+        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Total Credits</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ace-green);margin-top:4px">+' + formatINR(totalCredits) + '</div></div>' +
+        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Total Debits</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ace-red);margin-top:4px">-' + formatINR(totalDebits) + '</div></div>' +
+        '<div class="card card-body" style="text-align:center"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Total Transactions</div><div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-top:4px">' + dummyTransactions.length + '</div></div>' +
         '</div>' +
         '<div class="filter-bar"><span class="material-symbols-outlined" style="color:var(--text-faint)">filter_list</span>' +
-        ['All', 'Credit', 'Debit', 'Loan', 'Income', 'Investment', 'Transfer', 'Cash'].map(function (f) { return '<button class="filter-chip' + (f === 'All' ? ' active' : '') + '" onclick="filterTxns(\'' + f.toLowerCase() + '\',this)">' + f + '</button>' }).join('') +
+        ['All', 'Credit', 'Debit', 'Transfer', 'Income', 'Payment'].map(function (f) { return '<button class="filter-chip' + (f === 'All' ? ' active' : '') + '" onclick="filterTxns(\'' + f.toLowerCase() + '\',this)">' + f + '</button>' }).join('') +
         '</div>' +
         '<div class="card"><table class="txn-table"><thead><tr><th>Date</th><th>Description</th><th>Ref No</th><th>Category</th><th>Debit</th><th>Credit</th></tr></thead><tbody id="txnTableBody">' +
         dummyTransactions.map(function (t) { return '<tr onclick="openTxnDetail(\'' + t.id + '\')" style="cursor:pointer"><td>' + t.date + '</td><td style="font-weight:600">' + t.merchant + '</td><td style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">' + t.id + '</td><td><span class="badge badge-blue">' + t.category + '</span></td><td style="color:var(--ace-red)">' + (t.type === 'debit' ? formatINR(t.amount) : '') + '</td><td style="color:var(--ace-green)">' + (t.type === 'credit' ? formatINR(t.amount) : '') + '</td></tr>' }).join('') +
         '</tbody></table></div>' +
-        '<div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="showToast(\'PDF statement downloading...\',\'info\')"><span class="material-symbols-outlined" style="font-size:14px">picture_as_pdf</span> PDF</button><button class="btn btn-ghost btn-sm" onclick="exportCSV()"><span class="material-symbols-outlined" style="font-size:14px">table_view</span> CSV</button><button class="btn btn-ghost btn-sm" onclick="showToast(\'Statement emailed to arjun@example.com\',\'success\')"><span class="material-symbols-outlined" style="font-size:14px">email</span> Email</button></div>';
+        '<div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="showToast(\'PDF statement downloading...\',\'info\')"><span class="material-symbols-outlined" style="font-size:14px">picture_as_pdf</span> PDF</button><button class="btn btn-ghost btn-sm" onclick="exportCSV()"><span class="material-symbols-outlined" style="font-size:14px">table_view</span> CSV</button><button class="btn btn-ghost btn-sm" onclick="showToast(\'Statement emailed\',\'success\')"><span class="material-symbols-outlined" style="font-size:14px">email</span> Email</button></div>';
 }
 function filterTxns(cat, btn) {
     document.querySelectorAll('.filter-chip').forEach(function (c) { c.classList.remove('active') }); btn.classList.add('active');
@@ -608,6 +684,75 @@ function exportCSV() {
     dummyTransactions.forEach(function (t) { csv += t.date + ',' + t.merchant + ',' + t.id + ',' + t.category + ',' + (t.type === 'debit' ? t.amount : '') + ',' + (t.type === 'credit' ? t.amount : '') + '\n' });
     var blob = new Blob([csv], { type: 'text/csv' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ace_bank_statement.csv'; a.click();
     showToast('CSV exported successfully', 'success');
+}
+
+/* ═══════════════════ ANALYTICS PAGE ═══════════════════ */
+function renderAnalyticsPage() {
+    var c = document.getElementById('content'), u = AppState.user;
+    if (!u) { showAuthPage('login'); return; }
+    // If no live data yet, fetch it
+    if (!liveAnalytics) {
+        c.innerHTML = '<h2 style="margin-bottom:24px">📊 Analytics</h2><div style="text-align:center;padding:60px"><div style="font-size:16px;color:var(--text-muted)">Loading analytics...</div></div>';
+        loadLiveData().then(function () { renderAnalyticsPage(); });
+        return;
+    }
+    var an = liveAnalytics;
+    var income = parseFloat(an.income) || 0;
+    var expenses = parseFloat(an.expenses) || 0;
+    var savingsRate = income > 0 ? Math.round(((income - expenses) / income) * 100) : 0;
+    var maxVal = Math.max(income, expenses, 1);
+    // Monthly spending chart data
+    var monthlyData = an.monthlySpending || [];
+    var barHTML = '';
+    if (monthlyData.length > 0) {
+        var maxBar = Math.max.apply(null, monthlyData.map(function (m) { return parseFloat(m.amount) || 0; }));
+        monthlyData.forEach(function (m) {
+            var amt = parseFloat(m.amount) || 0;
+            var pct = maxBar > 0 ? Math.round((amt / maxBar) * 100) : 0;
+            var formatted = amt >= 1000 ? '₹' + (amt / 1000).toFixed(1) + 'k' : '₹' + amt;
+            barHTML += '<div style="display:flex;flex-direction:column;align-items:center;flex:1">' +
+                '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px">' + formatted + '</div>' +
+                '<div style="width:100%;max-width:40px;height:140px;background:var(--bg-body);border-radius:8px 8px 0 0;position:relative;overflow:hidden;display:flex;align-items:flex-end">' +
+                '<div style="width:100%;height:' + Math.max(pct, 3) + '%;background:linear-gradient(180deg,var(--ace-blue),#6366f1);border-radius:8px 8px 0 0;transition:height 0.6s ease"></div></div>' +
+                '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;font-weight:500">' + m.label + '</div></div>';
+        });
+    } else {
+        barHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint)">No spending data available</div>';
+    }
+    // Spending by type
+    var spendByType = an.spendingByType || [];
+    var totalSpend = spendByType.reduce(function (s, c) { return s + (parseFloat(c.amount) || 0); }, 0);
+    var spColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#64748b', '#10b981'];
+    var catHTML = '';
+    if (spendByType.length > 0) {
+        spendByType.forEach(function (cat, i) {
+            var amt = parseFloat(cat.amount) || 0;
+            var pct = totalSpend > 0 ? Math.round((amt / totalSpend) * 100) : 0;
+            var col = spColors[i % spColors.length];
+            catHTML += '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">' +
+                '<div style="width:12px;height:12px;border-radius:50%;background:' + col + ';flex-shrink:0"></div>' +
+                '<div style="flex:1;font-weight:600;font-size:14px">' + cat.type + '</div>' +
+                '<div style="font-family:var(--font-display);font-weight:700;font-size:14px">' + formatINR(amt) + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);min-width:40px;text-align:right">' + pct + '%</div></div>';
+        });
+    } else {
+        catHTML = '<div style="text-align:center;padding:30px;color:var(--text-faint)"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px">analytics</span>No spending data yet this month</div>';
+    }
+    c.innerHTML = '<h2 style="margin-bottom:24px">📊 Analytics</h2>' +
+        '<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px">' +
+        // Monthly Spending Chart
+        '<div class="card"><div class="card-header"><span class="card-title">Monthly Spending</span><span class="badge badge-blue">' + (an.currentYear || new Date().getFullYear()) + '</span></div>' +
+        '<div class="card-body" style="display:flex;align-items:flex-end;gap:8px;padding:16px 24px 24px">' + barHTML + '</div></div>' +
+        // Income vs Expenses
+        '<div class="card"><div class="card-header"><span class="card-title">Income vs Expenses</span></div><div class="card-body">' +
+        '<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-weight:600">Income</span><span style="font-family:var(--font-display);font-weight:700;color:var(--ace-green)">' + formatINR(income) + '</span></div>' +
+        '<div style="height:8px;background:var(--bg-body);border-radius:99px;overflow:hidden"><div style="height:100%;width:' + Math.round((income / maxVal) * 100) + '%;background:var(--ace-green);border-radius:99px;transition:width 0.6s ease"></div></div></div>' +
+        '<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-weight:600">Expenses</span><span style="font-family:var(--font-display);font-weight:700;color:var(--ace-red)">' + formatINR(expenses) + '</span></div>' +
+        '<div style="height:8px;background:var(--bg-body);border-radius:99px;overflow:hidden"><div style="height:100%;width:' + Math.round((expenses / maxVal) * 100) + '%;background:var(--ace-red);border-radius:99px;transition:width 0.6s ease"></div></div></div>' +
+        '<div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border)"><span style="font-weight:600">Savings Rate</span><span style="font-family:var(--font-display);font-weight:700;color:' + (savingsRate >= 0 ? 'var(--ace-green)' : 'var(--ace-red)') + '">' + savingsRate + '%</span></div>' +
+        '</div></div></div>' +
+        // Spending Breakdown
+        '<div class="card"><div class="card-header"><span class="card-title">Spending Breakdown</span></div><div class="card-body">' + catHTML + '</div></div>';
 }
 
 /* ═══════════════════ ACCOUNT OPENING ═══════════════════ */
@@ -709,13 +854,10 @@ function initApp() {
         var account = DB.getLoggedInAccount();
         if (account) {
             AppState.user = buildUserState(account);
-            if (account.transactions && account.transactions.length) {
-                dummyTransactions = account.transactions.map(function (t) {
-                    return { id: t.id, merchant: t.merchant, category: t.category ? t.category.toLowerCase() : 'transfer', type: t.type, amount: t.amount, date: t.date, icon: t.icon || 'receipt', color: t.color || '#64748b' };
-                });
-            } else { dummyTransactions = []; }
+            dummyTransactions = [];
             if (account.goals && account.goals.length) AppState.goals = account.goals;
-            showApp(); buildSidebar(); navigate('dashboard');
+            showApp(); buildSidebar();
+            loadLiveData().then(function () { navigate('dashboard'); });
             return;
         }
     }
